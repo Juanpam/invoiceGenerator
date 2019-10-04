@@ -30,6 +30,9 @@ def main():
 
             config["initialDate"], config["finalDate"] = datetime.datetime(
             iDate[2], iDate[1], iDate[0]), datetime.datetime(fDate[2], fDate[1], fDate[0])
+
+            config["sEmail"] = {"Y": True, "N": False}[
+                config["sEmail"].upper()]
     except:
         print("File not found, answer the following prompts")
         config["username"] = input("Please enter your assembla's username ")
@@ -56,18 +59,21 @@ def main():
         reports = getReportsFromDateRange(
             loginSession, config["username"], config["initialDate"], config["finalDate"])
 
-        filePath = modifyTemplate(config["name"], reports, config["path"])
+        if(reports):
+            filePath = modifyTemplate(config["name"], reports, config["path"])
 
-        if(config["sEmail"]):
-            if("emailAddress" not in config.keys()):
-                config["emailAddress"] = input("Please enter your GMAIL address ")
-                config["emailPass"] = input("Please enter your GMAIL password ")
-                config["receiver"] = input("Please enter the recipient address ")
+            if(config["sEmail"]):
+                if("emailAddress" not in config.keys()):
+                    config["emailAddress"] = input("Please enter your GMAIL address ")
+                    config["emailPass"] = input("Please enter your GMAIL password ")
+                    config["receiver"] = input("Please enter the recipient address ")
 
-            email = buildEmail(config["emailAddress"], config["receiver"],
-                               config["initialDate"], config["finalDate"], filePath)
+                email = buildEmail(config["emailAddress"], config["receiver"],
+                                config["initialDate"], config["finalDate"], filePath)
 
-            sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
+                sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
+        else:
+            print("There are no reports :(")
         print("Done :D")
 
 def getAuthToken(form):
