@@ -1,3 +1,5 @@
+<img src="logo.jpeg" align="right" />
+
 # invoiceGenerator
 A python program to facilitate the generation of invoices, using a Web scraper
 
