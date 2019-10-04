@@ -64,7 +64,7 @@ def main():
                 config["emailPass"] = input("Please enter your GMAIL password ")
                 config["receiver"] = input("Please enter the recipient address ")
 
-            email = buildEmail(config["emailAddress"], config["receiver"]
+            email = buildEmail(config["emailAddress"], config["receiver"],
                                config["initialDate"], config["finalDate"], filePath)
 
             sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
