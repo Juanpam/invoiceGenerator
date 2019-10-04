@@ -1,0 +1,12 @@
+{
+    "username": "username",
+    "password": "secret",
+    "name": "Rick Sanchez",
+    "path": ".",
+    "initialDate": "01/01/2019",
+    "finalDate": "02/01/2019",
+    "sEmail": "Y",
+    "emailAddress": "youremail@gmail.com",
+    "emailPass": "secret",
+    "receiver": "server@server.com"
+}
