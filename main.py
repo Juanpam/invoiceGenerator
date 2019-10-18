@@ -23,7 +23,7 @@ def main():
 
     config = {}
     try:
-        with open("config.json", "r") as configFile:
+        with open("config.json", "r", encoding="utf-8") as configFile:
             config = json.load(configFile)
             iDate = [int(x) for x in config["initialDate"].split("/")]
             fDate = [int(x) for x in config["finalDate"].split("/")]
