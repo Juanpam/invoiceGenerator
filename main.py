@@ -162,7 +162,7 @@ def getReportFromDate(loginSession, user, date):
         "hours": 8,
         "startTime": "8:00"
     }
-    print("standUpResponse", standUpResponse)
+    # print("standUpResponse", standUpResponse)
     if(standUpResponse):
         standUpPage = BeautifulSoup(standUpResponse.text, 'html.parser')
         
