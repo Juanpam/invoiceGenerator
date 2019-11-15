@@ -250,7 +250,8 @@ Muchas gracias. (Mensaje autogenerado por el invoiceGenerator :D)""".format(date
     with open(filePath, "rb") as attachment:
         # Add file as application/octet-stream
         # Email client can usually download this automatically as attachment
-        part = MIMEBase("application", "octet-stream")
+        part = MIMEBase(
+            "application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         part.set_payload(attachment.read())
 
 
