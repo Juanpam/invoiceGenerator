@@ -55,26 +55,30 @@ def main():
 
         loginSession = loginIntoAssembla(
             config["username"], config["password"])
-        print("Logged succesfully")
-        reports = getReportsFromDateRange(
-            loginSession, config["username"], config["initialDate"], config["finalDate"])
 
-        if(reports):
-            filePath = modifyTemplate(config["name"], reports, config["path"])
+        if(checkIfLoggedIn(loginSession)):
+            print("Logged succesfully")
+            reports = getReportsFromDateRange(
+                loginSession, config["username"], config["initialDate"], config["finalDate"])
 
-            if(config["sEmail"]):
-                if("emailAddress" not in config.keys()):
-                    config["emailAddress"] = input("Please enter your GMAIL address ")
-                    config["emailPass"] = input("Please enter your GMAIL password ")
-                    config["receiver"] = input("Please enter the recipient address ")
+            if(reports):
+                filePath = modifyTemplate(config["name"], reports, config["path"])
 
-                email = buildEmail(config["emailAddress"], config["receiver"],
-                                config["initialDate"], config["finalDate"], filePath)
+                if(config["sEmail"]):
+                    if("emailAddress" not in config.keys()):
+                        config["emailAddress"] = input("Please enter your GMAIL address ")
+                        config["emailPass"] = input("Please enter your GMAIL password ")
+                        config["receiver"] = input("Please enter the recipient address ")
 
-                sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
+                    email = buildEmail(config["emailAddress"], config["receiver"],
+                                    config["initialDate"], config["finalDate"], filePath)
+
+                    sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
+            else:
+                print("There are no reports :(")
+            print("Done :D")
         else:
-            print("There are no reports :(")
-        print("Done :D")
+            print("Log in failed. Please check your credentials and try again")
 
 def getAuthToken(form):
     authInput = form.find(attrs = {"name": "authenticity_token"})
@@ -107,10 +111,16 @@ def loginIntoAssembla(username, password):
         authURL, data=payload, headers=dict(referer=loginURL))
     # print("Login result", loginResult)
 
+    # if("security_token" in session.cookies):
+    #     print("Login cookies", session.cookies['security_token'])
+    # else:
+    #     print("Log in failed")
+
     return session
 
 
 def modifyTemplate(name, reports, path):
+    locale.setlocale(locale.LC_TIME, 'en-us')
     workbook = load_workbook("template.xlsx")
     worksheet = workbook.active
     
@@ -152,11 +162,11 @@ def getReportFromDate(loginSession, user, date):
         "hours": 8,
         "startTime": "8:00"
     }
-
+    print("standUpResponse", standUpResponse)
     if(standUpResponse):
         standUpPage = BeautifulSoup(standUpResponse.text, 'html.parser')
         
-        dataPanel = standUpPage.find(attrs={"data-panel": user})
+        dataPanel = standUpPage.find(attrs={"data-panel": user.lower()})
         if(dataPanel):
             reportContainer = list(filter(lambda e: isinstance(
                 e, bs4.element.Tag), dataPanel.parent.next_siblings))[0]
@@ -199,7 +209,6 @@ def getReportsFromDateRange(loginSession, user, initialDate, finalDate):
     return reports
 
 def sendEmail(user, password, receiver, content):
-    locale.setlocale(locale.LC_TIME, 'es-co')
     port = 465 #For SSL
     context = ssl.create_default_context()
 
@@ -208,7 +217,7 @@ def sendEmail(user, password, receiver, content):
         server.sendmail(user, receiver, content)
 
 def buildEmail(user, receiver, initialDate, finalDate, filePath):
-
+    locale.setlocale(locale.LC_TIME, 'es-co')
     email = MIMEMultipart()
 
     if(initialDate.month == finalDate.month):
@@ -260,6 +269,9 @@ Muchas gracias. (Mensaje autogenerado por el invoiceGenerator :D)""".format(date
 
     # print(email)
     return text
+
+def checkIfLoggedIn(session):
+    return 'security_token' in session.cookies
 
 def getTimezone(form):
     # timezoneInput = form.find(attrs = {"name": "user[time_zone]"})
