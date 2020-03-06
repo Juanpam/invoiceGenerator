@@ -8,15 +8,17 @@ import datetime
 import bs4
 import locale
 import os
-import email, smtplib, ssl
+import email
+import smtplib
+import ssl
 from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Alignment
 from bs4 import BeautifulSoup
 import json
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-
 
 
 def main():
@@ -29,7 +31,7 @@ def main():
             fDate = [int(x) for x in config["finalDate"].split("/")]
 
             config["initialDate"], config["finalDate"] = datetime.datetime(
-            iDate[2], iDate[1], iDate[0]), datetime.datetime(fDate[2], fDate[1], fDate[0])
+                iDate[2], iDate[1], iDate[0]), datetime.datetime(fDate[2], fDate[1], fDate[0])
 
             config["sEmail"] = {"Y": True, "N": False}[
                 config["sEmail"].upper()]
@@ -44,7 +46,7 @@ def main():
             "Please enter the inital date for the invoice (dd/mm/yyyy) ").split("/")]
         fDate = [int(x) for x in input(
             "Please enter the final date for the invoice (dd/mm/yyyy) ").split("/")]
-        
+
         config["initialDate"], config["finalDate"] = datetime.datetime(
             iDate[2], iDate[1], iDate[0]), datetime.datetime(fDate[2], fDate[1], fDate[0])
 
@@ -53,37 +55,88 @@ def main():
 
     finally:
 
-        loginSession = loginIntoAssembla(
-            config["username"], config["password"])
+        # This is version 1! No API
+        # loginSession = loginIntoAssembla(
+        #     config["username"], config["password"])
 
-        if(checkIfLoggedIn(loginSession)):
-            print("Logged succesfully")
-            reports = getReportsFromDateRange(
-                loginSession, config["username"], config["initialDate"], config["finalDate"])
+        # if(checkIfLoggedIn(loginSession)):
+        #     print("Logged succesfully")
+        #     reports = getReportsFromDateRange(
+        #         loginSession, config["username"], config["initialDate"], config["finalDate"])
 
-            if(reports):
-                filePath = modifyTemplate(config["name"], reports, config["path"])
+        #     if(reports):
+        #         filePath = modifyTemplate(config["name"], reports, config["path"])
 
-                if(config["sEmail"]):
-                    if("emailAddress" not in config.keys()):
-                        config["emailAddress"] = input("Please enter your GMAIL address ")
-                        config["emailPass"] = input("Please enter your GMAIL password ")
-                        config["receiver"] = input("Please enter the recipient address ")
+        #         if(config["sEmail"]):
+        #             if("emailAddress" not in config.keys()):
+        #                 config["emailAddress"] = input("Please enter your GMAIL address ")
+        #                 config["emailPass"] = input("Please enter your GMAIL password ")
+        #                 config["receiver"] = input("Please enter the recipient address ")
 
-                    email = buildEmail(config["emailAddress"], config["receiver"],
-                                    config["initialDate"], config["finalDate"], filePath)
+        #             email = buildEmail(config["emailAddress"], config["receiver"],
+        #                             config["initialDate"], config["finalDate"], filePath)
 
-                    sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
-            else:
-                print("There are no reports :(")
-            print("Done :D")
-        else:
-            print("Log in failed. Please check your credentials and try again")
+        #             sendEmail(config["emailAddress"], config["emailPass"], config["receiver"], email)
+        #     else:
+        #         print("There are no reports :(")
+        #     print("Done :D")
+        # else:
+        #     print("Log in failed. Please check your credentials and try again")
+
+        newMain(config["username"], config["initialDate"],
+                config["finalDate"], config['name'], config['path'])
+
+
+def newMain(username, initialDate, finalDate, name, path):
+    apiKey = "0dfe2b7b184b056856d2"
+    apiSecret = "758f33e4d5321033933647bb3ba9b79d27d2833b"
+    spaceId = "cxKnAkXfyr4AQCacwqjQYw"
+    getUsersURL = "https://api.assembla.com/v1/spaces/{}/users.json".format(
+        spaceId)
+
+    session = requests.session()
+    session.headers.update({"X-Api-Key": apiKey, "X-Api-Secret": apiSecret})
+    usersJson = json.loads(session.get(getUsersURL).text)
+
+    for user in usersJson:
+        if(username == user['login']):
+            userId = user['id']
+
+    # print(usersJson, userId)
+
+    getReportsURL = "https://api.assembla.com/v1/spaces/{}/standup_reports.json".format(
+        spaceId)
+    params = {'from': initialDate, 'to': finalDate}
+    reportsResponse = session.get(getReportsURL, params=params).text
+    # print(reportsResponse)
+    reportsJson = json.loads(reportsResponse)
+
+    reportsJson = [x for x in reportsJson if x['user_id'] == userId]
+
+    dailyReports = [{
+        'yesterday': x['what_i_did'],
+        'today': x['what_i_will_do'],
+        'date': getDateFromStr(x['filled_for'], '-'),
+        'startTime': '8:00',
+        'hours': 8
+    } for x in reportsJson]
+
+    dailyReports.reverse()
+    # print("Reports of current user", dailyReports)
+    filePath = modifyTemplate(name, dailyReports, path)
+
+
+def getDateFromStr(dateStr, delimiter="/"):
+    numbers = [int(x) for x in dateStr.split(delimiter)]
+    return datetime.datetime(
+        numbers[0], numbers[1], numbers[2])
+
 
 def getAuthToken(form):
-    authInput = form.find(attrs = {"name": "authenticity_token"})
+    authInput = form.find(attrs={"name": "authenticity_token"})
     # print("Auth input", authInput.attrs)
     return authInput['value']
+
 
 def loginIntoAssembla(username, password):
     loginURL = "https://app.assembla.com/login"
@@ -91,7 +144,10 @@ def loginIntoAssembla(username, password):
 
     session = requests.session()
 
-    loginResponse = session.get(loginURL)
+    loginResponse = session.get(loginURL, headers={
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.130 Safari/537.36'})
+
+    print(loginResponse.text)
 
     soup = BeautifulSoup(loginResponse.text, "html.parser")
     form = soup.form
@@ -123,7 +179,7 @@ def modifyTemplate(name, reports, path):
     locale.setlocale(locale.LC_TIME, 'en-us')
     workbook = load_workbook("template.xlsx")
     worksheet = workbook.active
-    
+
     startingRow = 6
     for i, report in enumerate(reports):
         # print("report", report, i)
@@ -134,14 +190,17 @@ def modifyTemplate(name, reports, path):
             row[1].value = reports[i+1]['yesterday']
         else:
             row[1].value = report['today']
-        
+
         row[2].value = report['startTime']
         row[3].value = report['hours']
+
+        for cellIndex in range(4):
+            row[cellIndex].alignment = Alignment(wrap_text=True)
 
     worksheet["C2"] = reports[0]['date'].strftime("%B %d")
     worksheet["D2"] = reports[-1]['date'].strftime("%B %d")
     worksheet["B3"] = name
-    
+
     filename = reports[0]['date'].strftime(
         "%b %d")+" - "+reports[-1]['date'].strftime("%b %d")
     filePath = os.path.join(path, "{}.xlsx".format(filename))
@@ -149,11 +208,13 @@ def modifyTemplate(name, reports, path):
     workbook.save(filePath)
     return filePath
 
+
 def getReportFromDate(loginSession, user, date):
     sDate = date.strftime("%Y-%m-%d")
     standUpURL = "https://app.assembla.com/spaces/codigo-4-0/scrum"
 
-    standUpResponse = loginSession.get(standUpURL, params = {"current_date": sDate})
+    standUpResponse = loginSession.get(
+        standUpURL, params={"current_date": sDate})
 
     dailyReports = {
         "yesterday": None,
@@ -165,7 +226,7 @@ def getReportFromDate(loginSession, user, date):
     # print("standUpResponse", standUpResponse)
     if(standUpResponse):
         standUpPage = BeautifulSoup(standUpResponse.text, 'html.parser')
-        
+
         dataPanel = standUpPage.find(attrs={"data-panel": user.lower()})
         if(dataPanel):
             reportContainer = list(filter(lambda e: isinstance(
@@ -193,38 +254,43 @@ def getReportFromDate(loginSession, user, date):
             dailyReports["yesterday"] = ''.join(reports[0])
             dailyReports["today"] = ''.join(reports[1])
 
-
         # print("The standup page content", dailyReports)
 
-    
     return dailyReports
+
 
 def getReportsFromDateRange(loginSession, user, initialDate, finalDate):
     dates = []
     while initialDate <= finalDate:
         dates.append(initialDate)
-        initialDate+=datetime.timedelta(days=1)
-    
-    reports = [r for r in [getReportFromDate(loginSession, user, date) for date in dates] if r['yesterday'] or r['today']]
+        initialDate += datetime.timedelta(days=1)
+
+    reports = [r for r in [getReportFromDate(
+        loginSession, user, date) for date in dates] if r['yesterday'] or r['today']]
     return reports
 
+
 def sendEmail(user, password, receiver, content):
-    port = 465 #For SSL
+    port = 465  # For SSL
     context = ssl.create_default_context()
 
     with smtplib.SMTP_SSL("smtp.gmail.com", port, context=context) as server:
         server.login(user, password)
         server.sendmail(user, receiver, content)
 
+
 def buildEmail(user, receiver, initialDate, finalDate, filePath):
     locale.setlocale(locale.LC_TIME, 'es-co')
     email = MIMEMultipart()
 
     if(initialDate.month == finalDate.month):
-        dateText = "{} al {} de {}".format(initialDate.day, finalDate.day, initialDate.strftime("%B"))
-        subject = "Factura {} {} - {} {}".format(initialDate.strftime("%B").capitalize(), initialDate.day, finalDate.day, initialDate.year)
+        dateText = "{} al {} de {}".format(
+            initialDate.day, finalDate.day, initialDate.strftime("%B"))
+        subject = "Factura {} {} - {} {}".format(initialDate.strftime(
+            "%B").capitalize(), initialDate.day, finalDate.day, initialDate.year)
     else:
-        dateText = "{} de {} al {} de {}".format(initialDate.day, initialDate.strftime("%B"), finalDate.day, finalDate.strftime("%B"))
+        dateText = "{} de {} al {} de {}".format(initialDate.day, initialDate.strftime(
+            "%B"), finalDate.day, finalDate.strftime("%B"))
         subject = "Factura {} {} - {} {} {}".format(
             initialDate.strftime("%B").capitalize(),
             initialDate.day,
@@ -242,7 +308,7 @@ Muchas gracias. (Mensaje autogenerado por el invoiceGenerator :D)""".format(date
     email['From'] = user
 
     email['Subject'] = subject
-    
+
     email['To'] = receiver
 
     email.attach(MIMEText(body, "plain"))
@@ -253,7 +319,6 @@ Muchas gracias. (Mensaje autogenerado por el invoiceGenerator :D)""".format(date
         part = MIMEBase(
             "application", "vnd.openxmlformats-officedocument.spreadsheetml.sheet")
         part.set_payload(attachment.read())
-
 
     # Encode file in ASCII characters to send by email
     encoders.encode_base64(part)
@@ -271,14 +336,17 @@ Muchas gracias. (Mensaje autogenerado por el invoiceGenerator :D)""".format(date
     # print(email)
     return text
 
+
 def checkIfLoggedIn(session):
     return 'security_token' in session.cookies
+
 
 def getTimezone(form):
     # timezoneInput = form.find(attrs = {"name": "user[time_zone]"})
     # print("Timezone input", timezoneInput)
     # return timezoneInput['value']
     return '-18000'
+
 
 if __name__ == "__main__":
     main()
